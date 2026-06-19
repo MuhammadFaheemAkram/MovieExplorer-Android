@@ -1,124 +1,138 @@
 # Movie Explorer
 
-Movie Explorer is a learning-focused Android app that demonstrates a practical mid-level MVVM architecture with Jetpack Compose. It uses fake hard-coded movie data, but the project is structured like a production app with repositories, use cases, dependency injection, local persistence, settings storage, and testable ViewModels.
+Movie Explorer is a learning-focused Android application that demonstrates how a small app can use production-inspired architecture without becoming over-engineered. It loads hard-coded movie data through a fake API, supports debounced search and movie details, persists favorites with Room, and stores app preferences with DataStore.
+
+The project is intended to work as both a GitHub portfolio sample and a guided reference for beginner-to-intermediate Android developers.
+
+## Main Features
+
+- Browse a grid of trending movies.
+- Pull to refresh fake remote data.
+- Search by movie title or genre with a 350 ms debounce.
+- Open a details screen by navigation argument.
+- Add and remove favorites.
+- Read favorite movies from Room without a network request.
+- Toggle dark mode and choose a content-language preference.
+- See loading, refreshing, success, empty, no-results, and error states.
+- Navigate with a bottom bar, navigation drawer, and details back action.
 
 ## Tech Stack
 
 - Kotlin
-- Jetpack Compose
-- Material 3
+- Jetpack Compose and Material 3
 - MVVM
+- Coroutines, Flow, and StateFlow
 - Hilt
-- Kotlin Coroutines
-- Flow and StateFlow
 - Room
 - DataStore Preferences
 - Navigation Compose
 - Coil
-- JUnit and kotlinx-coroutines-test
+- JUnit 4 and kotlinx-coroutines-test
+- Compose UI instrumentation tests
 
-## Architecture
+## Architecture Summary
 
-The app uses a clean-ish layered structure:
+The code uses a clean-ish layered architecture in one Android app module:
+
+```text
+Compose UI
+  -> ViewModel
+  -> Use case
+  -> Repository interface
+  -> Repository implementation
+  -> Fake API / Room / DataStore
+```
+
+Data returns through repository flows or suspend results, ViewModels convert it into immutable UI state, and route composables collect that state with lifecycle awareness. Stateless screen composables receive state and callbacks.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full explanation and diagrams.
+
+## Screens And Modules
+
+| Screen | Responsibility | Main learning points |
+| --- | --- | --- |
+| Home | Trending grid, refresh, favorite action | Combined flows, StateFlow, pull to refresh, UI states |
+| Search | Query input and filtered results | Debounce, `collectLatest`, no-results and error states |
+| Details | Movie metadata and favorite action | Navigation arguments, sealed UI state, suspend loading |
+| Favorites | Offline list of saved movies | Room Flow, persistence, removal action |
+| Settings | Dark mode and language preference | DataStore, app-level state, immediate theme updates |
+| About | Project description | Reusable design-system placeholder component |
+
+The app also includes shared navigation, theme, database, fake-network, and dependency-injection packages under `core/` and `di/`.
+
+## Folder Structure
 
 ```text
 app/src/main/java/com/example/movieexplorer/
   core/
-    common/
-    database/
-    datastore/
-    designsystem/
-    navigation/
-    network/
+    common/          Result type
+    database/        Room database
+    designsystem/    Theme, spacing, reusable UI, test tags
+    navigation/      Routes, navigation host, drawer and bottom bar
+    network/         Fake-network configuration
   data/
-    local/
-    mapper/
-    model/
-    remote/
-    repository/
+    local/           Room entity and DAO
+    mapper/          DTO/entity/domain mappings
+    model/           Remote DTO
+    remote/          API contract and fake service
+    repository/      Movie and settings repository implementations
   domain/
-    model/
-    repository/
-    usecase/
+    model/           App-facing models
+    repository/      Repository contracts
+    usecase/         Focused application actions
   feature/
-    details/
-    favorites/
     home/
     search/
+    favorites/
+    details/
     settings/
-  di/
+  di/                Hilt modules
 ```
 
-The important rule is that UI does not talk directly to network, Room, or DataStore. Composables receive state and callbacks. ViewModels expose immutable `StateFlow` UI state. Use cases represent screen-level actions. Repositories coordinate data sources.
+Tests are split between `app/src/test` for JVM tests and `app/src/androidTest` for Compose UI tests.
 
-## Data Flow
+## How To Run
 
-Home data flow:
+Requirements:
 
-```text
-FakeMovieApiService
-  -> DefaultMovieRepository
-  -> GetTrendingMoviesUseCase / RefreshTrendingMoviesUseCase
-  -> HomeViewModel
-  -> HomeScreen
+- Android Studio with the project SDK installed
+- JDK compatible with the configured Android Gradle Plugin
+- Android device or emulator running API 24 or newer
+
+Build the debug APK:
+
+```bash
+./gradlew :app:assembleDebug
 ```
 
-Favorites data flow:
+Install and run it from Android Studio, or install the APK from `app/build/outputs/apk/debug/` with ADB.
 
-```text
-Home or Details favorite action
-  -> ToggleFavoriteMovieUseCase
-  -> DefaultMovieRepository
-  -> MovieDao
-  -> Room favorite_movies table
-  -> FavoritesViewModel
-  -> FavoritesScreen
-```
+No API key, account, or backend is required.
 
-Settings data flow:
+## Fake API And Demo Data
 
-```text
-SettingsScreen
-  -> SettingsViewModel
-  -> UpdateThemeUseCase / UpdateContentLanguageUseCase
-  -> DefaultSettingsRepository
-  -> DataStore Preferences
-  -> MainViewModel
-  -> MovieExplorerTheme
-```
+`MovieApiService` looks like a real remote-service boundary, while `FakeMovieApiService` supplies eight hard-coded `MovieDto` records. It simulates latency with coroutine `delay`:
 
-## Screens
+- Trending: 1000 ms
+- Search: 500 ms
+- Details: 600 ms
 
-- Home teaches fake network loading, repository refresh, `StateFlow`, pull to refresh, loading/error/empty/success states, and favorite actions.
-- Search teaches debounced Flow-based search, query state, loading/error/no-results states, and navigation to details.
-- Details teaches navigation arguments, screen-specific sealed UI state, loading details by ID, and toggling favorites.
-- Favorites teaches Room persistence, offline reads, list state, and removing saved movies.
-- Settings teaches DataStore Preferences, app-level state, and theme updates from persisted settings.
+Search matches title or genre. Poster and backdrop URLs use deterministic Picsum seeds and are loaded by Coil. `NetworkConfig.simulateErrors` is `false` by default and can be changed in code when demonstrating error states.
 
-## Fake Network
+## Offline And Local Storage
 
-`FakeMovieApiService` behaves like a Retrofit-style service:
+Room stores complete favorite movie rows in the `favorite_movies` table. This lets the Favorites screen and saved movie details work from local data. Trending movies are kept only in an in-memory repository cache, so the app is not fully offline-first.
 
-- `getTrendingMovies()`
-- `searchMovies(query)`
-- `getMovieDetails(id)`
+DataStore Preferences persists:
 
-It simulates network delay and has a `NetworkConfig.simulateErrors` flag that can be switched for error-state testing.
+- `dark_mode_enabled`
+- `content_language`
+
+The language selector currently stores a preference; it does not yet switch Android string resources or remote content.
 
 ## Testing
 
-Current tests cover:
-
-- Search use case
-- Toggle favorite use case
-- HomeViewModel success state
-- HomeViewModel error state
-- SearchViewModel debounce and error states
-- DetailsViewModel loading and favorite state
-- DataStore-backed settings repository behavior
-- Stateless Compose UI states for Home, Search, and Settings
-
-Run tests:
+Run JVM tests:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
@@ -130,20 +144,43 @@ Compile Compose UI tests:
 ./gradlew :app:assembleDebugAndroidTest
 ```
 
-More testing notes are in [docs/TESTING.md](docs/TESTING.md).
-
-Build the app:
+Run Compose UI tests on a connected emulator or device:
 
 ```bash
-./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
 ```
 
-## Future Improvements
+Current coverage includes use cases, Home/Search/Details ViewModels, the DataStore settings repository, and stateless Compose UI states for Home, Search, and Settings. Room DAO/migration tests and navigation end-to-end tests are not present yet.
 
-- Add Compose UI tests for navigation and screen states.
-- Add Room migration tests once database versions change.
-- Add a real Retrofit API implementation behind the existing `MovieApiService`.
-- Add paging for larger result sets.
-- Add cached trending movies beyond favorites.
-- Add richer theme options such as system theme mode.
-- Add localization resources for the selected content language.
+See [docs/TESTING.md](docs/TESTING.md) for exact test files, techniques, and gaps.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Testing guide](docs/TESTING.md)
+- [Learning notes](docs/LEARNING_NOTES.md)
+- [Interview notes](docs/INTERVIEW_NOTES.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Phase 1 summary](docs/PHASE_1_SUMMARY.md)
+- [Phase 2 summary](docs/PHASE_2_SUMMARY.md)
+- [Phase 3 summary](docs/PHASE_3_SUMMARY.md)
+- [Phase 4 summary](docs/PHASE_4_SUMMARY.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Screenshots
+
+| Home | Search | Details |
+| --- | --- | --- |
+| Add screenshot | Add screenshot | Add screenshot |
+
+| Favorites | Settings | Dark theme |
+| --- | --- | --- |
+| Add screenshot | Add screenshot | Add screenshot |
+
+## Roadmap
+
+The next practical improvements are real API integration, Room-backed trending cache, pagination, localization, database migration tests, CI, accessibility review, and repository screenshots. See [docs/ROADMAP.md](docs/ROADMAP.md) for a prioritized list.
+
+## License
+
+No license file has been selected yet. Add a `LICENSE` file before publishing the repository for external reuse or accepting contributions.
