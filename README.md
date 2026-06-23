@@ -63,7 +63,7 @@ The app also includes shared navigation, theme, database, fake-network, and depe
 ## Folder Structure
 
 ```text
-app/src/main/java/com/example/movieexplorer/
+app/src/main/java/co/bitfuse/movieexplorer/
   core/
     common/          Result type
     database/        Room database

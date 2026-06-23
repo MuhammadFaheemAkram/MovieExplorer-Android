@@ -1,0 +1,39 @@
+package co.bitfuse.movieexplorer.feature.favorites
+
+import co.bitfuse.movieexplorer.domain.model.Movie
+
+data class FavoriteMovieUiModel(
+    val id: Int,
+    val title: String,
+    val overview: String,
+    val posterUrl: String,
+    val backdropUrl: String,
+    val rating: String,
+    val releaseYear: String,
+    val genres: List<String>,
+    val isFavorite: Boolean,
+)
+
+fun Movie.toFavoriteUiModel(): FavoriteMovieUiModel = FavoriteMovieUiModel(
+    id = id,
+    title = title,
+    overview = overview,
+    posterUrl = posterUrl,
+    backdropUrl = backdropUrl,
+    rating = "%.1f".format(rating),
+    releaseYear = releaseYear,
+    genres = genres,
+    isFavorite = isFavorite,
+)
+
+fun FavoriteMovieUiModel.toDomain(): Movie = Movie(
+    id = id,
+    title = title,
+    overview = overview,
+    posterUrl = posterUrl,
+    backdropUrl = backdropUrl,
+    rating = rating.toDoubleOrNull() ?: 0.0,
+    releaseYear = releaseYear,
+    genres = genres,
+    isFavorite = isFavorite,
+)

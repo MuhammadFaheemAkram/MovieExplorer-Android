@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.movieexplorer"
+    namespace = "co.bitfuse.movieexplorer"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.movieexplorer"
+        applicationId = "co.bitfuse.movieexplorer"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
