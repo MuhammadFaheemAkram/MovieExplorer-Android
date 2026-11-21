@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
@@ -8,9 +9,8 @@ plugins {
 android {
     namespace = "co.bitfuse.movieexplorer"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
+
     }
 
     defaultConfig {
@@ -21,6 +21,14 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Base URL of the Movie Explorer backend (the FastAPI project).
+        // 10.0.2.2 is how the Android emulator reaches the Mac's localhost.
+        // For a physical phone, override it in ~/.gradle/gradle.properties or with
+        //   ./gradlew installDebug -PmovieExplorerApiBaseUrl=http://192.168.x.x:8000/api/v1/
+        val apiBaseUrl = providers.gradleProperty("movieExplorerApiBaseUrl")
+            .getOrElse("http://10.0.2.2:8000/api/v1/")
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {
@@ -36,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -54,12 +63,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.room.runtime)
     implementation(libs.coil.compose)
     implementation(libs.hilt.android)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
     ksp(libs.hilt.compiler)
-    ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(platform(libs.androidx.compose.bom))

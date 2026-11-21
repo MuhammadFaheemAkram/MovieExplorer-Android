@@ -25,6 +25,7 @@ class DefaultSettingsRepository @Inject constructor(
                 contentLanguage = ContentLanguage.fromCode(
                     preferences[PreferencesKeys.ContentLanguage] ?: ContentLanguage.English.code,
                 ),
+                movieManagementEnabled = preferences[PreferencesKeys.MovieManagementEnabled] ?: false,
             )
         }
 
@@ -40,8 +41,15 @@ class DefaultSettingsRepository @Inject constructor(
         }
     }
 
+    override suspend fun setMovieManagementEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.MovieManagementEnabled] = enabled
+        }
+    }
+
     private object PreferencesKeys {
         val DarkModeEnabled = booleanPreferencesKey("dark_mode_enabled")
         val ContentLanguage = stringPreferencesKey("content_language")
+        val MovieManagementEnabled = booleanPreferencesKey("movie_management_enabled")
     }
 }

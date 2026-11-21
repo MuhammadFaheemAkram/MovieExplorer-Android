@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import co.bitfuse.movieexplorer.domain.model.ContentLanguage
 import co.bitfuse.movieexplorer.domain.usecase.ObserveSettingsUseCase
 import co.bitfuse.movieexplorer.domain.usecase.UpdateContentLanguageUseCase
+import co.bitfuse.movieexplorer.domain.usecase.UpdateMovieManagementUseCase
 import co.bitfuse.movieexplorer.domain.usecase.UpdateThemeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ class SettingsViewModel @Inject constructor(
     observeSettingsUseCase: ObserveSettingsUseCase,
     private val updateThemeUseCase: UpdateThemeUseCase,
     private val updateContentLanguageUseCase: UpdateContentLanguageUseCase,
+    private val updateMovieManagementUseCase: UpdateMovieManagementUseCase,
 ) : ViewModel() {
 
     val uiState: StateFlow<SettingsUiState> = observeSettingsUseCase()
@@ -26,6 +28,7 @@ class SettingsViewModel @Inject constructor(
             SettingsUiState(
                 darkModeEnabled = settings.darkModeEnabled,
                 selectedLanguage = settings.contentLanguage,
+                movieManagementEnabled = settings.movieManagementEnabled,
             )
         }
         .stateIn(
@@ -37,6 +40,12 @@ class SettingsViewModel @Inject constructor(
     fun setDarkModeEnabled(enabled: Boolean) {
         viewModelScope.launch {
             updateThemeUseCase(enabled)
+        }
+    }
+
+    fun setMovieManagementEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            updateMovieManagementUseCase(enabled)
         }
     }
 

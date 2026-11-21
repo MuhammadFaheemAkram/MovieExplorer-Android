@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,18 +28,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
+import co.bitfuse.movieexplorer.core.designsystem.MovieExplorerTestTags
 import co.bitfuse.movieexplorer.core.designsystem.theme.MovieExplorerSpacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MovieExplorerRoot(
+    // "Manage movies" setting (Settings screen). Off = read-only app.
+    canManageMovies: Boolean,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
 ) {
@@ -46,12 +52,15 @@ fun MovieExplorerRoot(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route ?: MovieExplorerRoute.Home.route
-    val isDetails = currentRoute == MovieExplorerRoute.Details.routePattern
+    // Child screens show a back arrow instead of the drawer menu.
+    val isChildScreen = currentRoute == MovieExplorerRoute.Details.routePattern ||
+        currentRoute == MovieExplorerRoute.AddMovie.route ||
+        currentRoute == MovieExplorerRoute.EditMovie.routePattern
     val showBottomBar = BottomBarDestinations.any { it.route.route == currentRoute }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = !isDetails,
+        gesturesEnabled = !isChildScreen,
         drawerContent = {
             MovieExplorerDrawerContent(
                 currentDestination = currentDestination,
@@ -70,7 +79,7 @@ fun MovieExplorerRoot(
                 TopAppBar(
                     title = { Text(text = currentRoute.toScreenTitle()) },
                     navigationIcon = {
-                        if (isDetails) {
+                        if (isChildScreen) {
                             IconButton(onClick = { navController.navigateUp() }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -102,10 +111,21 @@ fun MovieExplorerRoot(
                     )
                 }
             },
+            floatingActionButton = {
+                if (canManageMovies && currentRoute == MovieExplorerRoute.Home.route) {
+                    ExtendedFloatingActionButton(
+                        onClick = { navController.navigate(MovieExplorerRoute.AddMovie.route) },
+                        icon = { Icon(imageVector = Icons.Filled.Add, contentDescription = null) },
+                        text = { Text(text = "Add movie") },
+                        modifier = Modifier.testTag(MovieExplorerTestTags.HomeAddMovieButton),
+                    )
+                }
+            },
             contentWindowInsets = WindowInsets(0),
         ) { innerPadding ->
             MovieExplorerNavHost(
                 navController = navController,
+                canManageMovies = canManageMovies,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -194,6 +214,8 @@ private fun String.toScreenTitle(): String = when (this) {
     MovieExplorerRoute.Favorites.route -> MovieExplorerRoute.Favorites.title
     MovieExplorerRoute.Settings.route -> MovieExplorerRoute.Settings.title
     MovieExplorerRoute.About.route -> MovieExplorerRoute.About.title
+    MovieExplorerRoute.AddMovie.route -> MovieExplorerRoute.AddMovie.title
+    MovieExplorerRoute.EditMovie.routePattern -> MovieExplorerRoute.EditMovie.title
     MovieExplorerRoute.Details.routePattern -> MovieExplorerRoute.Details.title
     else -> MovieExplorerRoute.Home.title
 }

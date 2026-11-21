@@ -10,11 +10,11 @@ flowchart TD
     VM --> UC[Use case]
     UC --> RI[Repository interface]
     RI --> REPO[Repository implementation]
-    REPO --> API[FakeMovieApiService]
-    REPO --> ROOM[Room / MovieDao]
+    REPO --> API[Retrofit MovieApiService]
+    API --> BACKEND[(FastAPI backend + PostgreSQL)]
     REPO --> DS[DataStore Preferences]
+    BACKEND --> API
     API --> REPO
-    ROOM --> REPO
     DS --> REPO
     REPO --> FLOW[Flow or suspend result]
     FLOW --> VM
@@ -35,7 +35,7 @@ Examples:
 - `DetailsScreen` renders the sealed `MovieDetailsUiState` without loading data itself.
 - `SettingsScreen` sends toggle and language events to `SettingsViewModel` through callbacks.
 
-The screen composables contain rendering and interaction wiring, but no repository, Room, or DataStore access.
+The screen composables contain rendering and interaction wiring, but no repository, network, or DataStore access.
 
 ## ViewModel Layer
 
@@ -44,8 +44,10 @@ Every data-driven feature has a Hilt ViewModel:
 - `HomeViewModel` combines an internal loading/refresh/error state with the repository's trending-movie Flow.
 - `SearchViewModel` observes its query StateFlow, trims it, debounces for 350 ms, removes duplicate queries, and uses `collectLatest`.
 - `DetailsViewModel` exposes loading, success, and error through a sealed interface.
-- `FavoritesViewModel` maps the Room-backed favorites Flow into `FavoritesUiState`.
-- `SettingsViewModel` maps persisted settings and sends updates through use cases.
+- `MovieFormViewModel` serves both `add_movie` and `edit_movie/{movieId}`: the `movieId` in its `SavedStateHandle` decides the mode. It validates with `MovieFormValidator`, calls `CreateMovieUseCase` or `UpdateMovieUseCase`, and exposes `savedMovieId` so the route navigates once. Unlike the other ViewModels it holds its state in Compose `mutableStateOf`, because a `StateFlow` reaches a `TextField` one frame late and can drop fast keystrokes.
+- `FavoritesViewModel` maps the repository's favorites Flow (refreshed from the backend when observed) into `FavoritesUiState`.
+- `SettingsViewModel` maps persisted settings (including `movieManagementEnabled`) and sends updates through use cases.
+- `SearchViewModel` re-runs its query when the query changes **or** when `observeCatalogVersion()` emits after a create, update, or delete, so results never go stale.
 - `MainViewModel` exposes settings at the activity level so dark mode can wrap the full navigation tree.
 
 ViewModels expose `StateFlow` rather than mutable state. Mutable flows remain private where used.
@@ -64,23 +66,18 @@ Use cases are small classes with `operator fun invoke`. They give ViewModels nam
 
 Movie use cases include trending observation, refresh, search, details, favorite observation, and favorite toggling. Settings use cases include observing settings, updating dark mode, and updating content language.
 
-`RefreshTrendingMoviesUseCase` converts thrown failures into `MovieExplorerResult`, while Search and Details currently use `runCatching` in their ViewModels.
+`RefreshTrendingMoviesUseCase` and `ToggleFavoriteMovieUseCase` convert thrown failures into `MovieExplorerResult`, while Search and Details currently use `runCatching` in their ViewModels. A failed favorite toggle shows Home's inline error message, and Details only flips the heart after the backend confirms.
 
 ## Repository Layer
 
-`DefaultMovieRepository` coordinates three kinds of movie state:
+`DefaultMovieRepository` treats the backend as the single source of truth and keeps two in-memory caches:
 
-1. Fake remote DTOs from `MovieApiService`.
-2. An in-memory `MutableStateFlow` cache for trending movies.
-3. Room rows and favorite IDs from `MovieDao`.
+1. `trendingMovies`: the last `GET movies` result.
+2. `favoriteMovies`: the last `GET favorites` result, updated locally after each successful PUT/DELETE.
 
-The repository combines trending movies with Room favorite IDs, so Home favorite icons react to database changes. Search also checks Room IDs before mapping results. Details resolves data in this order:
+`observeTrendingMovies()` combines both, so Home favorite icons react to toggles without another request. `refreshTrendingMovies()` loads favorites too, so the icons are correct on first load. `observeFavoriteMovies()` re-fetches favorites whenever a collector starts and keeps the cached list if that request fails. Search and Details use the `isFavorite` value sent by the backend.
 
-```text
-In-memory trending movie
-  -> saved Room favorite
-  -> fake API details request
-```
+`toggleFavorite(movie)` uses the movie's current `isFavorite` to choose `DELETE` or `PUT`. Both are idempotent on the backend, so a retried request cannot flip the state back.
 
 `DefaultSettingsRepository` maps DataStore preferences to `UserSettings` and provides suspend update methods.
 
@@ -88,31 +85,17 @@ In-memory trending movie
 
 The app separates representations by responsibility:
 
-- `MovieDto`: fake remote/network representation.
-- `MovieEntity`: Room schema representation.
+- `MovieDto` / `MovieListResponseDto`: `@Serializable` network representations matching the backend JSON.
 - `Movie`: domain representation used by repository contracts and use cases.
 - Feature UI models: presentation-ready values such as formatted ratings.
 
-`MovieMappers.kt` converts DTOs and entities to domain models and domain models to entities. Feature packages convert domain models to their own UI models.
+`MovieMappers.kt` converts DTOs to domain models (for example `releaseYear: Int` from the API becomes the display `String` the UI already used). Feature packages convert domain models to their own UI models.
 
 This prevents a database column or API response change from automatically becoming a UI contract change.
 
-## Room Database
+## Local Database
 
-`MovieExplorerDatabase` is a version 1 Room database containing `MovieEntity` rows in `favorite_movies`.
-
-`MovieDao` supports:
-
-- Observing all favorites ordered by title.
-- Observing favorite IDs.
-- Checking whether one ID is a favorite.
-- Reading one saved movie.
-- Upserting a favorite.
-- Deleting a favorite by ID.
-
-The complete movie is stored, not only its ID. That is why Favorites can render saved data offline. Genres are stored as a pipe-delimited string and reconstructed by the mapper.
-
-Room does not cache the trending list, and schema export is currently disabled.
+Phase 5 removed the Room favorites table: favorites now live on the backend. Reintroducing Room as an offline cache is a roadmap item.
 
 ## DataStore Preferences
 
@@ -127,19 +110,24 @@ The dark-mode flow reaches `MainViewModel`, then `MainActivity`, which passes it
 
 The content-language value is persisted and displayed, but it is not connected to Android resource localization.
 
-## Fake Network Layer
+## Network Layer
 
-`MovieApiService` defines Retrofit-style suspend functions without depending on Retrofit:
+`MovieApiService` is a Retrofit interface for the Movie Explorer FastAPI backend:
 
 ```text
-getTrendingMovies()
-searchMovies(query)
-getMovieDetails(id)
+getMovies(search?, limit, offset)   GET    movies
+getMovieDetails(id)                 GET    movies/{id}
+createMovie(request)                POST   movies
+updateMovie(id, request)            PATCH  movies/{id}
+deleteMovie(id)                     DELETE movies/{id}
+getFavoriteMovies(limit, offset)    GET    favorites
+addFavorite(id)                     PUT    favorites/{id}
+removeFavorite(id)                  DELETE favorites/{id}
 ```
 
-`FakeMovieApiService` implements the interface with eight hard-coded DTOs, deterministic image URLs, coroutine delays, title/genre filtering, and an optional error flag through `NetworkConfig`.
+`NetworkModule` builds the OkHttp client (timeouts, body logging in debug builds), a `Json` instance with `ignoreUnknownKeys = true`, and Retrofit with the kotlinx.serialization converter. The base URL comes from `BuildConfig.API_BASE_URL`.
 
-Replacing it with a real backend would mainly require a new `MovieApiService` implementation and a changed Hilt binding.
+`safeApiCall` maps `IOException`, `HttpException`, and `SerializationException` to `MovieExplorerApiException`, whose message is safe to show in the UI. HTTP errors reuse the backend's `detail` text.
 
 ## Navigation
 
@@ -177,7 +165,7 @@ The project currently does not define a separate one-time effect stream such as 
 - Favorites has content and empty states.
 - Settings renders current persisted values.
 
-The fake service throws internally. Exceptions are caught before presentation and converted into user-facing messages in ViewModel state or `MovieExplorerResult`.
+Network and server failures are mapped to `MovieExplorerApiException` in the data layer. Exceptions are caught before presentation and converted into user-facing messages in ViewModel state or `MovieExplorerResult`.
 
 ## Dependency Injection
 
@@ -185,8 +173,8 @@ Hilt starts at `MovieExplorerApp` with `@HiltAndroidApp`. `MainActivity` is an `
 
 Modules:
 
-- `DataModule`: binds fake API, movie repository, and settings repository interfaces.
-- `DatabaseModule`: provides the Room database and DAO.
+- `NetworkModule`: provides `Json`, `OkHttpClient`, `Retrofit`, and `MovieApiService`.
+- `DataModule`: binds the movie and settings repository interfaces.
 - `DataStoreModule`: provides the settings DataStore.
 
 Constructor injection is used for services, repositories, use cases, and ViewModels.
@@ -200,7 +188,7 @@ Pull gesture
   -> HomeViewModel.refresh()
   -> RefreshTrendingMoviesUseCase
   -> DefaultMovieRepository.refreshTrendingMovies()
-  -> FakeMovieApiService.getTrendingMovies()
+  -> MovieApiService.getMovies() + getFavoriteMovies() (HTTP)
   -> DTO to domain mapping
   -> in-memory trending StateFlow
   -> HomeViewModel combined StateFlow
@@ -213,8 +201,8 @@ Favorite toggle:
 Favorite button
   -> ToggleFavoriteMovieUseCase
   -> DefaultMovieRepository.toggleFavorite()
-  -> MovieDao upsert/delete
-  -> Room Flow emits
+  -> PUT or DELETE favorites/{id} (HTTP)
+  -> favoriteMovies StateFlow updates
   -> Home and Favorites StateFlows update
   -> Compose recomposes
 ```

@@ -124,7 +124,13 @@ private fun MovieGrid(
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 160.dp),
         modifier = modifier.testTag(MovieExplorerTestTags.HomeMovieGrid),
-        contentPadding = PaddingValues(MovieExplorerSpacing.medium),
+        // Extra bottom space so the "Add movie" button never covers the last row.
+        contentPadding = PaddingValues(
+            start = MovieExplorerSpacing.medium,
+            top = MovieExplorerSpacing.medium,
+            end = MovieExplorerSpacing.medium,
+            bottom = 88.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(MovieExplorerSpacing.medium),
         horizontalArrangement = Arrangement.spacedBy(MovieExplorerSpacing.medium),
     ) {

@@ -2,6 +2,7 @@ package co.bitfuse.movieexplorer.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.bitfuse.movieexplorer.domain.usecase.ObserveCatalogChangesUseCase
 import co.bitfuse.movieexplorer.domain.usecase.SearchMoviesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -20,6 +22,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val searchMoviesUseCase: SearchMoviesUseCase,
+    observeCatalogChangesUseCase: ObserveCatalogChangesUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -27,10 +30,14 @@ class SearchViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            uiState
+            val debouncedQuery = uiState
                 .map { state -> state.query.trim() }
                 .debounce(350)
                 .distinctUntilChanged()
+
+            // Search again when the query changes OR when a movie was created, edited or
+            // deleted elsewhere in the app, so the results never show stale data.
+            combine(debouncedQuery, observeCatalogChangesUseCase()) { query, _ -> query }
                 .collectLatest { query ->
                     search(query)
                 }

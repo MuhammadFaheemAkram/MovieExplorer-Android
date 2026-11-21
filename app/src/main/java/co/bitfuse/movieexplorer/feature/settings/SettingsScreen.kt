@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +47,7 @@ fun SettingsRoute(
         uiState = uiState,
         onDarkModeChange = viewModel::setDarkModeEnabled,
         onLanguageChange = viewModel::setContentLanguage,
+        onMovieManagementChange = viewModel::setMovieManagementEnabled,
         modifier = modifier,
     )
 }
@@ -55,6 +57,7 @@ fun SettingsScreen(
     uiState: SettingsUiState,
     onDarkModeChange: (Boolean) -> Unit,
     onLanguageChange: (ContentLanguage) -> Unit,
+    onMovieManagementChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -76,6 +79,24 @@ fun SettingsScreen(
                     checked = uiState.darkModeEnabled,
                     onCheckedChange = onDarkModeChange,
                     modifier = Modifier.testTag(MovieExplorerTestTags.SettingsDarkModeSwitch),
+                )
+            },
+        )
+        HorizontalDivider()
+        ListItem(
+            headlineContent = { Text(text = "Manage movies") },
+            supportingContent = { Text(text = "Show add, edit and delete actions") },
+            leadingContent = {
+                Icon(
+                    imageVector = Icons.Outlined.EditNote,
+                    contentDescription = null,
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = uiState.movieManagementEnabled,
+                    onCheckedChange = onMovieManagementChange,
+                    modifier = Modifier.testTag(MovieExplorerTestTags.SettingsMovieManagementSwitch),
                 )
             },
         )

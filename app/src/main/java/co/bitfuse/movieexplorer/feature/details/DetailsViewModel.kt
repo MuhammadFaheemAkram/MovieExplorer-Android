@@ -2,6 +2,8 @@ package co.bitfuse.movieexplorer.feature.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import co.bitfuse.movieexplorer.core.common.MovieExplorerResult
+import co.bitfuse.movieexplorer.domain.usecase.DeleteMovieUseCase
 import co.bitfuse.movieexplorer.domain.usecase.GetMovieDetailsUseCase
 import co.bitfuse.movieexplorer.domain.usecase.ToggleFavoriteMovieUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,7 @@ import javax.inject.Inject
 class DetailsViewModel @Inject constructor(
     private val getMovieDetailsUseCase: GetMovieDetailsUseCase,
     private val toggleFavoriteMovieUseCase: ToggleFavoriteMovieUseCase,
+    private val deleteMovieUseCase: DeleteMovieUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<MovieDetailsUiState>(MovieDetailsUiState.Loading)
@@ -38,10 +41,34 @@ class DetailsViewModel @Inject constructor(
     fun toggleFavorite() {
         val currentState = _uiState.value as? MovieDetailsUiState.Success ?: return
         viewModelScope.launch {
-            toggleFavoriteMovieUseCase(currentState.movie.toDomain())
-            _uiState.value = MovieDetailsUiState.Success(
-                currentState.movie.copy(isFavorite = !currentState.movie.isFavorite),
-            )
+            val result = toggleFavoriteMovieUseCase(currentState.movie.toDomain())
+            // Only flip the heart once the backend confirmed the change.
+            if (result is MovieExplorerResult.Success) {
+                _uiState.value = currentState.copy(
+                    movie = currentState.movie.copy(isFavorite = !currentState.movie.isFavorite),
+                )
+            }
+        }
+    }
+
+    // Called after the user confirmed the delete dialog.
+    fun deleteMovie() {
+        val currentState = _uiState.value as? MovieDetailsUiState.Success ?: return
+        if (currentState.isDeleting) return
+        viewModelScope.launch {
+            _uiState.value = currentState.copy(isDeleting = true, actionErrorMessage = null)
+            when (val result = deleteMovieUseCase(currentState.movie.id)) {
+                is MovieExplorerResult.Success -> {
+                    _uiState.value = MovieDetailsUiState.Deleted
+                }
+
+                is MovieExplorerResult.Error -> {
+                    _uiState.value = currentState.copy(
+                        isDeleting = false,
+                        actionErrorMessage = result.message,
+                    )
+                }
+            }
         }
     }
 }

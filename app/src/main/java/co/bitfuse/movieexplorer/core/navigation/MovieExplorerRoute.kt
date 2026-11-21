@@ -29,6 +29,21 @@ sealed interface MovieExplorerRoute {
         override val title = "About"
     }
 
+    data object AddMovie : MovieExplorerRoute {
+        override val route = "add_movie"
+        override val title = "Add Movie"
+    }
+
+    data object EditMovie : MovieExplorerRoute {
+        const val MOVIE_ID_ARG = "movieId"
+        const val routePattern = "edit_movie/{$MOVIE_ID_ARG}"
+
+        override val route = routePattern
+        override val title = "Edit Movie"
+
+        fun createRoute(movieId: Int) = "edit_movie/$movieId"
+    }
+
     data object Details : MovieExplorerRoute {
         const val MOVIE_ID_ARG = "movieId"
         const val routePattern = "details/{$MOVIE_ID_ARG}"

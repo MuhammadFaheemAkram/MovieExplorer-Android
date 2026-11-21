@@ -1,7 +1,5 @@
 package co.bitfuse.movieexplorer.di
 
-import co.bitfuse.movieexplorer.data.remote.FakeMovieApiService
-import co.bitfuse.movieexplorer.data.remote.MovieApiService
 import co.bitfuse.movieexplorer.data.repository.DefaultMovieRepository
 import co.bitfuse.movieexplorer.data.repository.DefaultSettingsRepository
 import co.bitfuse.movieexplorer.domain.repository.MovieRepository
@@ -12,15 +10,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+// MovieApiService is provided by NetworkModule (Retrofit creates it).
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DataModule {
-
-    @Binds
-    @Singleton
-    abstract fun bindMovieApiService(
-        fakeMovieApiService: FakeMovieApiService,
-    ): MovieApiService
 
     @Binds
     @Singleton

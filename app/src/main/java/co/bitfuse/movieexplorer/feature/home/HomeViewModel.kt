@@ -56,7 +56,11 @@ class HomeViewModel @Inject constructor(
 
     fun toggleFavorite(movie: MovieUiModel) {
         viewModelScope.launch {
-            toggleFavoriteMovieUseCase(movie.toDomain())
+            val result = toggleFavoriteMovieUseCase(movie.toDomain())
+            if (result is MovieExplorerResult.Error) {
+                // The list stays visible; the screen shows the message inline.
+                viewModelState.update { state -> state.copy(errorMessage = result.message) }
+            }
         }
     }
 

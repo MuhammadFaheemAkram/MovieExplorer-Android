@@ -28,11 +28,13 @@ class DefaultSettingsRepositoryTest {
 
         repository.setDarkModeEnabled(true)
         repository.setContentLanguage(ContentLanguage.Urdu)
+        repository.setMovieManagementEnabled(true)
 
         assertEquals(
             UserSettings(
                 darkModeEnabled = true,
                 contentLanguage = ContentLanguage.Urdu,
+                movieManagementEnabled = true,
             ),
             repository.observeSettings().first(),
         )

@@ -8,4 +8,5 @@ interface SettingsRepository {
     fun observeSettings(): Flow<UserSettings>
     suspend fun setDarkModeEnabled(enabled: Boolean)
     suspend fun setContentLanguage(language: ContentLanguage)
+    suspend fun setMovieManagementEnabled(enabled: Boolean)
 }

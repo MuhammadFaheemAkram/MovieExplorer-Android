@@ -28,6 +28,7 @@ class SettingsScreenTest {
                     uiState = SettingsUiState(darkModeEnabled = false),
                     onDarkModeChange = { darkModeEnabled = it },
                     onLanguageChange = {},
+                    onMovieManagementChange = {},
                 )
             }
         }
@@ -48,6 +49,7 @@ class SettingsScreenTest {
                     uiState = SettingsUiState(selectedLanguage = ContentLanguage.English),
                     onDarkModeChange = {},
                     onLanguageChange = { selectedLanguage = it },
+                    onMovieManagementChange = {},
                 )
             }
         }
@@ -56,5 +58,26 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Urdu").performClick()
 
         assertEquals(ContentLanguage.Urdu, selectedLanguage)
+    }
+
+    @Test
+    fun movieManagementSwitchCallsCallback() {
+        var movieManagementEnabled = false
+
+        composeRule.setContent {
+            MovieExplorerTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(movieManagementEnabled = false),
+                    onDarkModeChange = {},
+                    onLanguageChange = {},
+                    onMovieManagementChange = { movieManagementEnabled = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Manage movies").assertIsDisplayed()
+        composeRule.onNodeWithTag(MovieExplorerTestTags.SettingsMovieManagementSwitch).performClick()
+
+        assertTrue(movieManagementEnabled)
     }
 }

@@ -17,7 +17,15 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
+        // Only ask Google's Maven for Google/AndroidX artifacts; everything else
+        // (Retrofit, OkHttp, kotlinx.serialization) comes from Maven Central.
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
     }
 }

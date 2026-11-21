@@ -1,5 +1,6 @@
 package co.bitfuse.movieexplorer.feature.search
 
+import co.bitfuse.movieexplorer.domain.usecase.ObserveCatalogChangesUseCase
 import co.bitfuse.movieexplorer.domain.usecase.SearchMoviesUseCase
 import co.bitfuse.movieexplorer.testing.FakeMovieRepository
 import co.bitfuse.movieexplorer.testing.MainDispatcherRule
@@ -25,7 +26,7 @@ class SearchViewModelTest {
         val repository = FakeMovieRepository().apply {
             searchResult = Result.success(listOf(testMovie(id = 8, title = "Orbit Cafe")))
         }
-        val viewModel = SearchViewModel(SearchMoviesUseCase(repository))
+        val viewModel = searchViewModel(repository)
 
         advanceUntilIdle()
         viewModel.onQueryChange("or")
@@ -47,7 +48,7 @@ class SearchViewModelTest {
         val repository = FakeMovieRepository().apply {
             searchResult = Result.failure(IllegalStateException("Search unavailable"))
         }
-        val viewModel = SearchViewModel(SearchMoviesUseCase(repository))
+        val viewModel = searchViewModel(repository)
 
         advanceUntilIdle()
         viewModel.onQueryChange("aurora")
@@ -59,4 +60,28 @@ class SearchViewModelTest {
         assertTrue(state.movies.isEmpty())
         assertEquals("Search unavailable", state.errorMessage)
     }
+
+    @Test
+    fun `results reload after a movie is deleted elsewhere`() = runTest {
+        val repository = FakeMovieRepository().apply {
+            searchResult = Result.success(listOf(testMovie(id = 8, title = "Orbit Cafe")))
+        }
+        val viewModel = searchViewModel(repository)
+        viewModel.onQueryChange("orbit")
+        advanceTimeBy(350)
+        advanceUntilIdle()
+        assertEquals(1, repository.searchCallCount)
+
+        repository.searchResult = Result.success(emptyList())
+        repository.deleteMovie(8)
+        advanceUntilIdle()
+
+        assertEquals(2, repository.searchCallCount)
+        assertTrue(viewModel.uiState.value.movies.isEmpty())
+    }
+
+    private fun searchViewModel(repository: FakeMovieRepository) = SearchViewModel(
+        searchMoviesUseCase = SearchMoviesUseCase(repository),
+        observeCatalogChangesUseCase = ObserveCatalogChangesUseCase(repository),
+    )
 }

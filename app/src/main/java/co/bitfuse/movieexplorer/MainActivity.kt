@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             val settings = viewModel.settings.collectAsStateWithLifecycle()
 
             MovieExplorerTheme(darkTheme = settings.value.darkModeEnabled) {
-                MovieExplorerRoot()
+                MovieExplorerRoot(canManageMovies = settings.value.movieManagementEnabled)
             }
         }
     }

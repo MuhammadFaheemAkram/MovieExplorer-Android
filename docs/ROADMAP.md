@@ -11,9 +11,8 @@ This roadmap extends the existing app without pretending missing work is already
 
 ## Priority 2: Testing Confidence
 
-- Add in-memory Room DAO tests.
-- Enable Room schema export and add migration tests before database version 2.
-- Add direct `DefaultMovieRepository` tests for source precedence and favorite merging.
+- When Room returns as an offline cache: add DAO tests, enable schema export, and add migration tests.
+- Add MockWebServer tests for `MovieApiService` JSON parsing (`DefaultMovieRepository` tests were added in Phase 5).
 - Add Favorites, Settings, and Main ViewModel tests.
 - Add Details and Favorites Compose UI tests.
 - Add navigation tests for bottom navigation, drawer destinations, and details back behavior.
@@ -21,23 +20,23 @@ This roadmap extends the existing app without pretending missing work is already
 
 ## Priority 3: Real Data
 
-- Add Retrofit and Kotlin Serialization or another supported converter.
-- Implement a real `MovieApiService` behind the existing interface.
-- Move API keys and base URLs into safe build configuration.
-- Add typed network/domain errors and retry rules.
-- Replace demo Picsum images with backend poster/backdrop paths.
+Done in Phase 5: Retrofit + kotlinx.serialization, a real `MovieApiService` for the FastAPI backend, a `BuildConfig` base URL, and `MovieExplorerApiException` error mapping. Remaining:
+
+- Protect write endpoints on the backend (API key or JWT with an admin role). Phase 7's Manage movies switch only hides UI; the API still accepts writes from anyone.
+- Add retry rules (for example exponential backoff for idempotent requests).
+- Serve real poster/backdrop images from the backend instead of Picsum seeds.
 
 ## Priority 4: Better Offline Behavior
 
-- Cache trending and details in Room.
-- Make Room the source of truth for movie lists.
+- Reintroduce Room as an offline cache for trending, details, and favorites (removed in Phase 5).
+- Make Room the source of truth for movie lists, synced from the backend.
 - Add cache timestamps and a freshness policy.
 - Keep cached content visible when refresh fails.
 - Consider WorkManager only if background synchronization becomes a real requirement.
 
 ## Priority 5: Larger Data Sets
 
-- Add Paging 3 for trending and search.
+- Add Paging 3 for trending and search (the backend already supports `limit`/`offset` and returns `total`).
 - Preserve scroll position and query state across navigation.
 - Add sort/filter controls if supported by the data source.
 
